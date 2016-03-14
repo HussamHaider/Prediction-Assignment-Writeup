@@ -1,0 +1,97 @@
+Practical Machine Learning - Prediction Assignment Writeup
+----------------------------------------------------------
+
+Data source : http://groupware.les.inf.puc-rio.br/har
+
+Package declaration
+```{r}
+library(randomForest)
+library(ggplot2)
+library(caret)
+library(lattice)
+```
+
+
+Setting seed to be reproducible
+```{r}
+set.seed(3251)
+```
+
+The first step is to load the csv file data to dataframe and analyze the data
+
+```{r}
+training <- read.csv("~/Desktop/pml-training.csv")
+testing <- read.csv("~/Desktop/pml-testing.csv")
+str(training)
+#head(training)
+```
+
+
+This data check allows us to note two main points :
+ 1 - Lot of NA's
+ 2 - Lot of columns with near zero variance.
+
+
+Cleaning the data as most of the columns in dataset only contains NA
+Removing the columns where 80 % of the valuesa are NA
+
+```{r}
+training <- training[,colSums(is.na(training))/nrow(training) < 0.8 ]
+#eliminate the predictors with near zero variance
+nearzero <- nearZeroVar(training,saveMetrics = T)
+training <- training[,nearzero$nzv == FALSE]
+#names(training)
+```
+
+
+ Removing unnecessary columns
+ Hypothesis - username timestamp does not contribute to prodiction of class
+```{r}
+unNecessaryColumns <- grep("timestamp|X|user_name|new_window",names(training))
+training <- training[,-unNecessaryColumns]
+```
+
+```{r}
+#summary(training)
+```
+
+
+Training & validation set-Splitting the dataset in two part.
+Creating validation set from training set to perform cross validation
+```{r}
+train_index <- createDataPartition(y = training$classe,
+                                   p = 0.7,
+                                   list = FALSE)
+training_set      <- training[train_index, ]
+validation_set <- training[-train_index, ]
+
+```
+
+Model fit using random forests
+
+```{r}
+modelFit <- train(classe ~ ., data = training_set, method="rf",ntrees=10)
+modelFit$finalModel
+```
+
+Predicting with training data
+```{r}
+ptraining <- predict(modelFit, training_set)
+print(confusionMatrix(ptraining, training_set$classe))
+```
+
+Cross validation
+
+```{r}
+ptraining <- predict(modelFit, validation_set)
+print(confusionMatrix(ptraining, validation_set$classe))
+```
+
+As seen by the result of the confusionmatrix, the model is good and efficient and quite accurate.
+
+Test data
+```{r}
+testPred<-predict(modelFit,testing)
+testPred
+```
+----
